@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mutual-review-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server that runs mutual code review using Claude and GPT-4o, then synthesizes the findings."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,8 +40,10 @@ mutual-review-mcp = "mutual_review_mcp.server:main_sync"
 mutual-review = "mutual_review_mcp.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/mutual-review-mcp"
-Issues = "https://github.com/your-org/mutual-review-mcp/issues"
+Homepage = "https://github.com/miharu8686/mutual-review-mcp"
+Repository = "https://github.com/miharu8686/mutual-review-mcp"
+Issues = "https://github.com/miharu8686/mutual-review-mcp/issues"
+Changelog = "https://github.com/miharu8686/mutual-review-mcp/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mutual_review_mcp"]
