@@ -1,5 +1,6 @@
 # mutual-review-mcp
 
+[![PyPI version](https://img.shields.io/pypi/v/mutual-review-mcp.svg)](https://pypi.org/project/mutual-review-mcp/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://spec.modelcontextprotocol.io/)
@@ -26,13 +27,22 @@ Set `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` in your environment first.
 
 ## Install
 
-### A. uvx (recommended, ephemeral)
-
 ```bash
+pip install mutual-review-mcp
+# Or run without installing:
 uvx mutual-review-mcp
 ```
 
-### B. pip
+### Detail
+
+#### A. uvx (recommended, ephemeral)
+
+```bash
+uvx mutual-review-mcp                                       # MCP server (stdio)
+uvx --from mutual-review-mcp mutual-review path/to/foo.py   # CLI
+```
+
+#### B. pip
 
 ```bash
 pip install mutual-review-mcp
@@ -40,10 +50,10 @@ mutual-review-mcp              # launch MCP server (stdio)
 mutual-review path/to/foo.py   # one-shot CLI
 ```
 
-### C. From source
+#### C. From source
 
 ```bash
-git clone https://github.com/your-org/mutual-review-mcp
+git clone https://github.com/miharu8686/mutual-review-mcp
 cd mutual-review-mcp
 pip install -e .[dev]
 pytest

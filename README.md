@@ -1,5 +1,6 @@
 # mutual-review-mcp
 
+[![PyPI version](https://img.shields.io/pypi/v/mutual-review-mcp.svg)](https://pypi.org/project/mutual-review-mcp/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://spec.modelcontextprotocol.io/)
@@ -26,24 +27,33 @@ claude mcp add mutual-review -- uvx mutual-review-mcp
 
 ## インストール
 
-### A. uvx (推奨・一時実行)
-
 ```bash
+pip install mutual-review-mcp
+# または、インストールせず一時実行:
 uvx mutual-review-mcp
 ```
 
-### B. pip
+### 詳細
+
+#### A. uvx (推奨・一時実行)
+
+```bash
+uvx mutual-review-mcp              # MCPサーバー起動 (stdio)
+uvx --from mutual-review-mcp mutual-review path/to/foo.py  # CLI
+```
+
+#### B. pip
 
 ```bash
 pip install mutual-review-mcp
-mutual-review-mcp           # MCP サーバー起動
-mutual-review path/to/foo.py  # 単発 CLI
+mutual-review-mcp                  # MCP サーバー起動
+mutual-review path/to/foo.py       # 単発 CLI
 ```
 
-### C. git clone (開発用)
+#### C. git clone (開発用)
 
 ```bash
-git clone https://github.com/your-org/mutual-review-mcp
+git clone https://github.com/miharu8686/mutual-review-mcp
 cd mutual-review-mcp
 pip install -e .[dev]
 pytest
