@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mutual-review-mcp"
+version = "0.1.0"
+description = "MCP server that runs mutual code review using Claude and GPT-4o, then synthesizes the findings."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "mutual-review-mcp contributors" },
+]
+keywords = ["mcp", "code-review", "claude", "gpt-4o", "anthropic", "openai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+mutual-review-mcp = "mutual_review_mcp.server:main_sync"
+mutual-review = "mutual_review_mcp.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/mutual-review-mcp"
+Issues = "https://github.com/your-org/mutual-review-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mutual_review_mcp"]

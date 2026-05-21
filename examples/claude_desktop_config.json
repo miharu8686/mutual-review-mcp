@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mutual-review": {
+      "command": "uvx",
+      "args": ["mutual-review-mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-...",
+        "OPENAI_API_KEY": "sk-...",
+        "MUTUAL_REVIEW_CLAUDE_MODEL": "claude-sonnet-4-6",
+        "MUTUAL_REVIEW_GPT_MODEL": "gpt-4o",
+        "ENABLE_COST_TRACKING": "0"
+      }
+    }
+  }
+}
