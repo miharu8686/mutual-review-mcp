@@ -5,6 +5,8 @@
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://spec.modelcontextprotocol.io/)
 
+📖 解説記事 (日本語): [自作MCPサーバーを書いて公開するまで](https://zenn.dev/miharu_tools/articles/f21c642db3fb3d)
+
 **Claude × GPT-4o mutual code review MCP server**
 
 An MCP (Model Context Protocol) server that has two LLMs independently review your code, then has Claude synthesize their findings into a single prioritized report.
