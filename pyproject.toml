@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mutual-review-mcp"
-version = "0.1.1"
+version = "0.2.0"
 description = "MCP server that runs mutual code review using Claude and GPT-4o, then synthesizes the findings."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +33,8 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
 ]
 
 [project.scripts]
@@ -47,3 +49,24 @@ Changelog = "https://github.com/miharu8686/mutual-review-mcp/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mutual_review_mcp"]
+
+[tool.hatch.build.targets.sdist]
+# Internal working documents must not ship in the distribution.
+exclude = ["WORK_REPORT.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.coverage.run]
+source = ["mutual_review_mcp"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

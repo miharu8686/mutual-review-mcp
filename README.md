@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://spec.modelcontextprotocol.io/)
+[![test](https://github.com/miharu8686/mutual-review-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/miharu8686/mutual-review-mcp/actions/workflows/test.yml)
 
 📖 解説記事 (日本語): [自作MCPサーバーを書いて公開するまで](https://zenn.dev/miharu_tools/articles/f21c642db3fb3d)
 
@@ -16,7 +17,7 @@
 - Claude Desktop / Claude Code / 任意の MCP クライアントから呼べる
 - `review_file` / `review_code` / `review_diff` の 3 ツール
 - 拡張子から言語自動推定 (`.py` → python, `.ts` → typescript, ...)
-- API キーは環境変数で渡す
+- API キーは環境変数または設定ファイルで渡す(コード直書きなし)。未設定なら起動時に日英併記のエラーで即終了(fail-fast)
 - コスト追跡はオプション (`ENABLE_COST_TRACKING=1` で有効化)
 
 ## クイックスタート (Claude Code)
@@ -133,8 +134,7 @@ review_file(path="/repo/src/auth.py", context="OAuth2 callback handler")
 
 ### `review_diff`
 
-unified diff 文字列を直接渡してレビュー。v0.1 では git 実行は行わない。
-呼び出し側で `git diff` の出力を取得して渡す:
+unified diff 文字列を直接渡してレビュー。git 実行は行わない(呼び出し側で `git diff` の出力を取得して渡す):
 
 ```bash
 git diff HEAD~1 | mutual-review --diff -
@@ -146,7 +146,7 @@ git diff HEAD~1 | mutual-review --diff -
 | `context` | string | no | 背景情報 |
 | `synthesize` | boolean | no | 統合レポート生成 (default: true) |
 
-> v0.2 で `review_diff_git(repo_path, ref)` を追加予定。詳細は [docs/ROADMAP.md](docs/ROADMAP.md)。
+> `review_diff_git(repo_path, ref)` は将来リリースで追加予定。詳細は [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ## CLI
 
@@ -227,6 +227,8 @@ MUTUAL_REVIEW_GPT_MODEL=gpt-4o-mini
 | `COST_LOG_PATH` | OS依存 (XDG 準拠) | コストログの出力先 (`usage.jsonl`) |
 | `MUTUAL_REVIEW_CONFIG` | OS依存 | JSON 設定ファイルパス (APIキーフォールバック) |
 
+テンプレートは [.env.example](.env.example) を参照(本ツールは通常の環境変数を読みます。`.env` の自動読み込みは行わないため、direnv / dotenv / MCP クライアントの `env` 設定などで読み込んでください)。
+
 ## 設定ファイル (オプション)
 
 環境変数の代わりに JSON 設定ファイルから API キーを読むこともできます。
@@ -236,13 +238,15 @@ MUTUAL_REVIEW_GPT_MODEL=gpt-4o-mini
 - macOS: `~/Library/Application Support/mutual-review-mcp/config.json`
 - Linux: `~/.config/mutual-review-mcp/config.json`
 
-内容:
+内容([config.example.json](config.example.json) をコピーして書き換え):
 ```json
 {
   "anthropic_api_key": "sk-ant-...",
   "openai_api_key": "sk-..."
 }
 ```
+
+優先順位は **環境変数 > 設定ファイル > エラー**。どちらにも無い場合、サーバー(`mutual-review-mcp`)と CLI(`mutual-review`)は起動時に設定方法の案内付きエラー(日英併記)を出して終了コード 2 で停止します(fail-fast。デフォルトキー・フォールバックキーはありません)。
 
 ## エラーメッセージ
 
@@ -252,6 +256,16 @@ MUTUAL_REVIEW_GPT_MODEL=gpt-4o-mini
 ANTHROPIC_API_KEY が設定されていません / ANTHROPIC_API_KEY is not set. ...
 Anthropic API への接続に失敗しました: ... / Failed to call Anthropic API: ...
 ```
+
+## 開発(テスト・lint・CI)
+
+```bash
+pip install -e .[dev]
+pytest --cov=mutual_review_mcp   # 全テストはAPIモックで動作(キー・課金不要)
+ruff check src tests
+```
+
+GitHub Actions(`.github/workflows/test.yml`)が push / PR ごとに Python 3.11 / 3.12 で pytest + ruff を実行します。全 API 呼び出しをモック化しているため CI にシークレットは不要です。
 
 ## ライセンス
 

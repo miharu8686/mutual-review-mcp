@@ -17,7 +17,6 @@ import json
 import os
 import pathlib
 import sys
-from typing import Optional
 
 DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
 DEFAULT_GPT_MODEL = "gpt-4o"
@@ -57,9 +56,12 @@ def _load_config_file() -> dict:
     if not p.exists():
         return {}
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+    # A syntactically valid but non-object JSON (list, string, ...) must not
+    # crash key resolution; treat it the same as a missing/broken file.
+    return data if isinstance(data, dict) else {}
 
 
 def _bilingual_missing_key(env_var: str) -> str:
@@ -98,6 +100,24 @@ def get_openai_key() -> str:
     if key:
         return key
     raise RuntimeError(_bilingual_missing_key("OPENAI_API_KEY"))
+
+
+def validate_keys() -> None:
+    """Fail fast when either API key is unresolvable.
+
+    Raises RuntimeError with a bilingual, actionable message (same as the
+    lazy getters). Call this at process startup so misconfiguration is
+    reported immediately instead of on the first tool call. When both keys
+    are missing, both are reported at once so setup needs only one pass.
+    """
+    errors: list[str] = []
+    for getter in (get_anthropic_key, get_openai_key):
+        try:
+            getter()
+        except RuntimeError as exc:
+            errors.append(str(exc))
+    if errors:
+        raise RuntimeError("\n".join(errors))
 
 
 def get_claude_model() -> str:
@@ -147,6 +167,7 @@ __all__ = [
     "get_config_path",
     "get_anthropic_key",
     "get_openai_key",
+    "validate_keys",
     "get_claude_model",
     "get_gpt_model",
     "is_cost_tracking_enabled",

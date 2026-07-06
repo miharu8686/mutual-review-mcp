@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from . import reviewer
+from . import config, reviewer
 
 server: Server = Server("mutual-review")
 
@@ -123,7 +124,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         return [TextContent(type="text", text=f"Error: {exc}")]
 
 
-async def main() -> None:
+async def main() -> None:  # pragma: no cover - requires a live stdio transport
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -132,9 +133,19 @@ async def main() -> None:
         )
 
 
+def _validate_startup() -> None:
+    """Fail fast (exit 2) when API keys are unresolvable, before serving."""
+    try:
+        config.validate_keys()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
 def main_sync() -> None:
     """Entry point for the `mutual-review-mcp` console script."""
-    asyncio.run(main())
+    _validate_startup()
+    asyncio.run(main())  # pragma: no cover - requires a live stdio transport
 
 
 if __name__ == "__main__":

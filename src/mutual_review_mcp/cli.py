@@ -13,7 +13,7 @@ import io
 import pathlib
 import sys
 
-from . import __version__, reviewer
+from . import __version__, config, reviewer
 
 
 def _force_utf8_stdio() -> None:
@@ -59,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     synthesize = not args.no_synth
 
     try:
+        # Fail fast on missing keys before reading any input.
+        config.validate_keys()
         if args.path:
             result = reviewer.review_file(
                 args.path,

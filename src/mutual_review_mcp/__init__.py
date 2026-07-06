@@ -1,6 +1,6 @@
 """mutual-review-mcp: MCP server for mutual code review (Claude + GPT-4o)."""
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 from .reviewer import (
     review_code,

@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/protocol-MCP-purple.svg)](https://spec.modelcontextprotocol.io/)
+[![test](https://github.com/miharu8686/mutual-review-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/miharu8686/mutual-review-mcp/actions/workflows/test.yml)
 
 📖 解説記事 (日本語): [自作MCPサーバーを書いて公開するまで](https://zenn.dev/miharu_tools/articles/f21c642db3fb3d)
 
@@ -16,7 +17,7 @@ An MCP (Model Context Protocol) server that has two LLMs independently review yo
 - Callable from Claude Desktop, Claude Code, or any MCP client
 - Three tools: `review_file`, `review_code`, `review_diff`
 - Auto-detects language from file extension (`.py` → python, `.ts` → typescript, ...)
-- API keys via environment variables
+- API keys via environment variables or a config file (never hardcoded); missing keys fail fast at startup with an actionable bilingual error
 - Cost tracking is optional (`ENABLE_COST_TRACKING=1`)
 
 ## Quick start (Claude Code)
@@ -133,7 +134,7 @@ Review an inline code snippet.
 
 ### `review_diff`
 
-Review a unified diff string. v0.1 does **not** shell out to git — pass the diff text directly:
+Review a unified diff string. This tool does **not** shell out to git — pass the diff text directly:
 
 ```bash
 git diff HEAD~1 | mutual-review --diff -
@@ -145,7 +146,7 @@ git diff HEAD~1 | mutual-review --diff -
 | `context` | string | no | Background context |
 | `synthesize` | boolean | no | Generate synthesis report (default: true) |
 
-> v0.2 will add `review_diff_git(repo_path, ref)`. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> `review_diff_git(repo_path, ref)` is planned for a future release. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## CLI
 
@@ -224,6 +225,8 @@ MUTUAL_REVIEW_GPT_MODEL=gpt-4o-mini
 | `COST_LOG_PATH` | OS-default (XDG) | Output path for `usage.jsonl` |
 | `MUTUAL_REVIEW_CONFIG` | OS-default | JSON config file path (API key fallback) |
 
+See [.env.example](.env.example) for a template. The tool reads standard environment variables; it does not auto-load `.env` files — use direnv/dotenv or your MCP client's `env` block.
+
 ## Config file (optional)
 
 You can store API keys in a JSON file instead of env vars.
@@ -240,6 +243,10 @@ Default location:
 }
 ```
 
+Copy [config.example.json](config.example.json) to get started.
+
+Resolution order is **environment variable > config file > error**. When neither is set, both the server (`mutual-review-mcp`) and the CLI (`mutual-review`) fail fast at startup with a bilingual error explaining how to configure keys (exit code 2). There are no default or fallback keys.
+
 ## Error messages
 
 Errors are bilingual (Japanese + English):
@@ -248,6 +255,16 @@ Errors are bilingual (Japanese + English):
 ANTHROPIC_API_KEY が設定されていません / ANTHROPIC_API_KEY is not set. ...
 Anthropic API への接続に失敗しました: ... / Failed to call Anthropic API: ...
 ```
+
+## Development (tests, lint, CI)
+
+```bash
+pip install -e .[dev]
+pytest --cov=mutual_review_mcp   # all API calls are mocked: no keys, no cost
+ruff check src tests
+```
+
+GitHub Actions (`.github/workflows/test.yml`) runs pytest + ruff on Python 3.11 / 3.12 for every push and PR. No secrets are needed in CI because everything is mocked.
 
 ## License
 

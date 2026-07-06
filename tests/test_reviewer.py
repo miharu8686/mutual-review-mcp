@@ -1,7 +1,6 @@
 """Unit tests that don't require API keys."""
 from __future__ import annotations
 
-import os
 import pathlib
 import sys
 
