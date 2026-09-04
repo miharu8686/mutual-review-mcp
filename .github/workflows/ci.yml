@@ -165,15 +165,38 @@ jobs:
             python -m ruff check --select E9,F63,F7,F82 .
           fi
 
+      # **ruff と同じ考え方。**設定が無いリポジトリに既定の全ルールを当てると、
+      # 様式の指摘(Low)が大量に出て赤が意味を持たなくなる。
+      # 2026-09-04 の実測: tsumugi 28 件のうち **26 件が Low**
+      # (try_except_pass 13・assert_used 5 など)。High は 2 件だった。
+      # 設定が無いときは **Medium 以上**だけを見る。書式は bandit 1.9.4 の
+      # bandit/cli/main.py で確認した(--severity-level {all,low,medium,high})。
+      # 設定ファイルの扱いも実装で確認した:
+      #   .bandit … bandit が自分で探して読む(引数で指す必要がない)
+      #   bandit.yaml / bandit.yml / pyproject.toml … -c で明示的に指す必要がある
       - name: bandit
         shell: bash
         run: |
           set -u
           python -m pip install bandit==1.9.4
-          # tests は除外する(assert が大量に出て意味のない指摘になるため)。
+          # tests は除外する(テストの assert が大量に出て意味のない指摘になるため)。
           # 除外は -x で行い、対象はリポジトリ全体にする——
           # 対象ディレクトリを列挙する形にすると、ディレクトリが増えたときに黙って検査から漏れる。
-          python -m bandit -r . -x './tests,./.git,./.venv,./node_modules'
+          ex='./tests,./test,./.git,./.venv,./node_modules'
+          if [ -f .bandit ]; then
+            echo "bandit の設定あり(.bandit): 全ての深刻度で検査する"
+            python -m bandit -r . -x "$ex"
+          elif [ -f bandit.yaml ] || [ -f bandit.yml ]; then
+            c=$([ -f bandit.yaml ] && echo bandit.yaml || echo bandit.yml)
+            echo "bandit の設定あり($c): 全ての深刻度で検査する"
+            python -m bandit -r . -x "$ex" -c "$c"
+          elif [ -f pyproject.toml ] && grep -q '^\[tool\.bandit' pyproject.toml; then
+            echo "bandit の設定あり(pyproject.toml の [tool.bandit]): 全ての深刻度で検査する"
+            python -m bandit -r . -x "$ex" -c pyproject.toml
+          else
+            echo "bandit の設定なし: Medium 以上のみ(Low は出すが落とさない)"
+            python -m bandit -r . -x "$ex" --severity-level medium
+          fi
 
       - name: pip-audit
         if: hashFiles('requirements.txt') != ''
