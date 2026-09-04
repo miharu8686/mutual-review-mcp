@@ -1,0 +1,169 @@
+# 正本は claude-harness/ci-templates/。各リポジトリへは API 経路で配布(ADR 0088)。
+# **このファイルを直接編集しない。**直すのは正本の側で、配布し直す。
+#
+# python.yml — B 層。common(共通層)に Python のフルセットを足したもの。
+# review-pipeline の ci.yml(pytest+カバレッジ / ruff / bandit / pip-audit)を、
+# **リポジトリの中身で自動的に分岐する形**に汎化してある。
+#
+# 分岐の考え方: 「無いものは飛ばす。飛ばしたことは出力に書く。」
+#   - requirements.txt があれば -r で入れる。無く pyproject.toml があれば -e . で入れる。どちらも無ければ入れない
+#   - tests/ も test_*.py も無ければ pytest を飛ばす(「tests なし」と出す)
+#   - requirements.txt が無ければ pip-audit を飛ばす(入力にするファイルが無いため)
+# **黙って飛ばさない。**飛ばしたことが出力に出ないと、検査したつもりの空振りが起きる。
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  # **github.workflow ではなく workflow_ref を使う。**前者は workflow の name であり、
+  # 同じ name の workflow が同居すると group が一致して互いをキャンセルし合う。
+  # 配布先には name: CI の既存 CI が実在する(holo-view / input-lab / review-pipeline)。
+  # workflow_ref はファイルパスを含むので、同名でも分かれる。
+  group: ${{ github.workflow_ref }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  common:
+    name: common
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # gitleaks-action が PR のコミット一覧を取るのに要る
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks は履歴も見る
+
+      # 速い検査を先に置く。落ちるなら早く落とす。
+      - name: 制御文字の検査
+        shell: bash
+        run: |
+          set -u
+          mapfile -t files < <(git ls-files -- \
+            '*.js' '*.ts' '*.py' '*.ps1' '*.md' '*.json' \
+            '*.yml' '*.yaml' '*.html' '*.css' '*.txt' '*.sh')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "対象ファイルなし"
+            exit 0
+          fi
+          hit=0
+          for f in "${files[@]}"; do
+            [ -f "$f" ] || continue
+            # -a はテキスト扱いの強制。付けないと NUL を含むファイルで
+            # 「Binary file matches」になり、行番号が出ない。
+            if out=$(grep -naP '[\x00-\x08\x0b\x0c\x0e-\x1f]' -- "$f" 2>/dev/null); then
+              hit=1
+              line=$(printf '%s' "$out" | head -1 | cut -d: -f1)
+              echo "::error file=$f,line=$line::制御文字を検出した"
+              printf '%s\n' "$out" | head -5 | while IFS= read -r l; do
+                # 制御文字そのものを画面に出さない(端末が壊れる)。位置だけ出す。
+                echo "  $f:$(printf '%s' "$l" | cut -d: -f1)"
+              done
+            fi
+          done
+          if [ "$hit" -ne 0 ]; then
+            echo ""
+            echo "制御文字が混入している。ソースには \\u001b / \\u0000 のエスケープ表記で書くこと。"
+            echo "手元での確認: grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' <file>"
+            exit 1
+          fi
+          echo "制御文字なし (${#files[@]} ファイルを走査)"
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE は Organization のみ必要。個人アカウントでは不要。
+
+  python:
+    name: python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 依存の導入
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            echo "requirements.txt を使う"
+            python -m pip install -r requirements.txt
+          elif [ -f pyproject.toml ]; then
+            echo "pyproject.toml を使う (-e .)"
+            python -m pip install -e .
+          else
+            echo "パッケージ定義なし。依存は入れない"
+          fi
+
+      - name: pytest (カバレッジつき)
+        shell: bash
+        run: |
+          set -u
+          if [ -d tests ] || git ls-files -- '*test_*.py' '*_test.py' | grep -q .; then
+            python -m pip install pytest pytest-cov
+            python -m pytest --cov=. --cov-report=term-missing
+          else
+            echo "tests なし。pytest は走らせない"
+          fi
+
+      # **設定が無いリポジトリで既定ルールを全部当てない。**
+      # ruff の既定ルールセットは広く、既存コードに後から当てると数百件出る
+      # (2026-09-04、tsumugi で 212 件。テストは 152 件すべて通っていた)。
+      # それでは「CI が常に赤い」状態になり、赤が意味を持たなくなる。
+      # 設定が無いときは **壊れているものだけ** を見る:
+      #   E9  … 構文エラー・IO エラー
+      #   F63 … 比較の誤り(常に真になる等)
+      #   F7  … break/return の位置など、実行時に壊れる書き方
+      #   F82 … 未定義の名前(タイポ・import 漏れ)
+      #   F401… 未使用の import
+      # 規則を足したいリポジトリは ruff.toml を置けば、その瞬間から全ルールに切り替わる。
+      - name: ruff
+        shell: bash
+        run: |
+          set -u
+          python -m pip install ruff==0.16.6
+          cfg=""
+          if [ -f ruff.toml ] || [ -f .ruff.toml ]; then
+            cfg="ruff.toml"
+          elif [ -f pyproject.toml ] && grep -q '^\[tool\.ruff' pyproject.toml; then
+            cfg="pyproject.toml の [tool.ruff]"
+          fi
+          if [ -n "$cfg" ]; then
+            echo "ruff の設定あり($cfg): 全ルールで検査する"
+            python -m ruff check .
+          else
+            echo "ruff の設定なし: 最小ルール(構文エラー・未定義名・未使用 import)のみ"
+            python -m ruff check --select E9,F63,F7,F82,F401 .
+          fi
+
+      - name: bandit
+        shell: bash
+        run: |
+          set -u
+          python -m pip install bandit==1.9.4
+          # tests は除外する(assert が大量に出て意味のない指摘になるため)。
+          # 除外は -x で行い、対象はリポジトリ全体にする——
+          # 対象ディレクトリを列挙する形にすると、ディレクトリが増えたときに黙って検査から漏れる。
+          python -m bandit -r . -x './tests,./.git,./.venv,./node_modules'
+
+      - name: pip-audit
+        if: hashFiles('requirements.txt') != ''
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: requirements.txt
+
+      - name: pip-audit を飛ばした場合の記録
+        if: hashFiles('requirements.txt') == ''
+        run: echo "requirements.txt が無いため pip-audit は走らせない"
