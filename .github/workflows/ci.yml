@@ -88,10 +88,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
+      # **cache: pip を無条件に書かない。**setup-python の pip キャッシュは
+      # requirements*.txt か pyproject.toml が無いとステップごと失敗する
+      # (2026-09-04、loop-s1 と persona-sim で実測:
+      #  "No file in ... matched to [**/requirements.txt or **/pyproject.toml]")。
+      # 依存を入れる前の段階で落ちるため、pytest も ruff も一切走らない。
+      # python.yml は「無いものは飛ばす」設計だが、ここだけその原則から漏れていた。
       - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.11"
-          cache: pip
+          cache: ${{ (hashFiles('requirements*.txt', 'pyproject.toml') != '') && 'pip' || '' }}
+
+      - name: pip キャッシュの有無を記録する
+        shell: bash
+        run: |
+          if [ -n "$(ls requirements*.txt 2>/dev/null)" ] || [ -f pyproject.toml ]; then
+            echo "パッケージ定義あり: pip キャッシュを使う"
+          else
+            echo "パッケージ定義なし: pip キャッシュは使わない"
+          fi
 
       - name: 依存の導入
         shell: bash
@@ -127,7 +142,9 @@ jobs:
       #   F63 … 比較の誤り(常に真になる等)
       #   F7  … break/return の位置など、実行時に壊れる書き方
       #   F82 … 未定義の名前(タイポ・import 漏れ)
-      #   F401… 未使用の import
+      # **F401(未使用の import)は入れない。**壊れてはいないためである。
+      # 2026-09-04 の実測では、B 層5本の赤 19 件が**すべて F401 だった**
+      # (E9/F63/F7/F82 は 0 件)。動かないものと、片づいていないものは分けて扱う。
       # 規則を足したいリポジトリは ruff.toml を置けば、その瞬間から全ルールに切り替わる。
       - name: ruff
         shell: bash
@@ -144,8 +161,8 @@ jobs:
             echo "ruff の設定あり($cfg): 全ルールで検査する"
             python -m ruff check .
           else
-            echo "ruff の設定なし: 最小ルール(構文エラー・未定義名・未使用 import)のみ"
-            python -m ruff check --select E9,F63,F7,F82,F401 .
+            echo "ruff の設定なし: 最小ルール(構文エラー・比較の誤り・未定義名)のみ"
+            python -m ruff check --select E9,F63,F7,F82 .
           fi
 
       - name: bandit
